@@ -1,0 +1,20 @@
+FROM python:3.9-slim-buster
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/predict.py .
+
+# Argumentos para el modelo y vectorizador
+ENV MODEL_FILE_NAME="sentiment_model.joblib"
+ENV VECTORIZER_FILE_NAME="tfidf_vectorizer.joblib"
+ENV SENTIMENT_MAP_FILE_NAME="sentiment_mapping.txt"
+
+ENTRYPOINT ["python", "-m", "src.predict"] # Puedes cambiar esto si usas un servidor web como Flask/FastAPI
+
+# Si usas Flask/FastAPI:
+# COPY src/app.py . # Tu archivo app.py que usa CustomPredictor
+# EXPOSE 8080
+# CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8080", "app:app"]
