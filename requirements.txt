@@ -3,3 +3,4 @@ scikit-learn
 joblib
 kfp
 google-cloud-aiplatform
+numpy
