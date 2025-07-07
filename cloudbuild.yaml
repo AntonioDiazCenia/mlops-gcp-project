@@ -3,8 +3,6 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   id: 'build-pipeline-base-image'
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/mlops-pipeline-base:latest', '.']
-  options:
-    logging: CLOUD_LOGGING_ONLY
 
 # Paso 2: Subir la imagen base a Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
@@ -55,7 +53,8 @@ steps:
       --template-path=sentiment_analysis_pipeline.json \
       --parameter-values=raw_data_gcs_uri=$RAW_DATA_GCS_URI \
       --pipeline-root=gs://your-unique-bucket-name/pipeline_root # Mismo root que en el pipeline
-
+options:
+  logging: CLOUD_LOGGING_ONLY
 images:
 - 'gcr.io/$PROJECT_ID/mlops-pipeline-base:latest'
 - 'gcr.io/$PROJECT_ID/sentiment-model-serving:latest'
