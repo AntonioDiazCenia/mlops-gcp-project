@@ -1,0 +1,59 @@
+steps:
+# Paso 1: Construir la imagen base para los componentes del pipeline
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-pipeline-base-image'
+  args: ['build', '-t', 'gcr.io/$PROJECT_ID/mlops-pipeline-base:latest', '.']
+
+# Paso 2: Subir la imagen base a Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-pipeline-base-image'
+  args: ['push', 'gcr.io/$PROJECT_ID/mlops-pipeline-base:latest']
+
+# Paso 3: Construir la imagen de serving del modelo
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-serving-image'
+  args: ['build', '-f', 'serving_Dockerfile', '-t', 'gcr.io/$PROJECT_ID/sentiment-model-serving:latest', '.']
+
+# Paso 4: Subir la imagen de serving a Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-serving-image'
+  args: ['push', 'gcr.io/$PROJECT_ID/sentiment-model-serving:latest']
+
+# Paso 5: Compilar el pipeline de Kubeflow
+# Aquí asumimos que el script `sentiment_pipeline.py` está en `pipelines/`
+# y que `kfp` ya está instalado en el entorno de Cloud Build
+- name: 'python:3.9' # Usar una imagen de Python para ejecutar el script de compilación
+  id: 'compile-pipeline'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    pip install kfp google-cloud-aiplatform
+    python pipelines/sentiment_pipeline.py
+
+# Paso 6: Ejecutar el pipeline en Vertex AI
+# Nota: La ejecución del pipeline requiere que el servicio AI Platform (Vertex AI) tenga permisos
+# para acceder a Cloud Storage y a los recursos de Vertex AI.
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'run-vertex-pipeline'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    gcloud config set project $PROJECT_ID
+    gcloud config set ai/region $REGION
+    
+    # Reemplaza con tu bucket de GCS y el nombre del archivo de datos
+    RAW_DATA_GCS_URI="gs://your-unique-bucket-name/data/raw_reviews.csv" 
+    
+    # Ejecuta el pipeline compilado
+    gcloud ai pipelines run \
+      --project=$PROJECT_ID \
+      --region=$REGION \
+      --template-path=sentiment_analysis_pipeline.json \
+      --parameter-values=raw_data_gcs_uri=$RAW_DATA_GCS_URI \
+      --pipeline-root=gs://your-unique-bucket-name/pipeline_root # Mismo root que en el pipeline
+
+images:
+- 'gcr.io/$PROJECT_ID/mlops-pipeline-base:latest'
+- 'gcr.io/$PROJECT_ID/sentiment-model-serving:latest'
